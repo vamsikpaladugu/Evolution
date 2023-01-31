@@ -1,2 +1,2 @@
-const val SpaceX = 500
-const val zeroGenderSpeciesPerHundred = 51
+const val SpaceX = 1000
+const val maleSpeciesPerHundred = 20
