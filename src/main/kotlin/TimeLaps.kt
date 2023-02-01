@@ -1,34 +1,37 @@
+import kotlin.math.sqrt
 import kotlin.random.Random
+import kotlin.math.pow
 
-/*
-* Gender Arrays: two arrays each for one gender
-* Space matrix: a 2D matrices with the size of space
-* populationLifeSpan: Total life span of simulator
-* */
 class TimeLaps {
+
+    private var maleMap = mutableMapOf<Long, Species>()
+    private var femaleMap = mutableMapOf<Long, Species>()
 
     private var populationLifeSpan = 0
 
-    private val zeroGender = mutableListOf<Species>()
-    private val oneGender = mutableListOf<Species>()
+    private var fCount = 0L
+    private var mCount = 0L
+
 
     /*
     * create 200 species with Random positions, gender and lifespan
     * */
     fun init() {
 
-        for (i in 0..199) {
+        for (i in 0..200) {
 
-            val gender = if (Random.nextInt(1, 101) <= zeroGenderSpeciesPerHundred) 1 else 0
+            val gender = if (Random.nextInt(1, 101) <= maleSpeciesPerHundred) 0 else 1
 
             val posX = Random.nextInt(0, SpaceX)
             val posY = Random.nextInt(0, SpaceX)
 
-            val lifeTime = Random.nextInt(200, 600)
+            val lifeTime = Random.nextInt(preAdultAge, maxLifeSpan)
 
-            val species = Species(posX, posY, lifeTime, gender, -1)
-
-            if (gender == 1) oneGender.add(species) else zeroGender.add(species)
+            if (gender == 0) {
+                maleMap[mCount] = Species(mCount++, posX, posY, lifeTime, gender, -1, 0)
+            } else {
+                femaleMap[fCount] = Species(fCount++, posX, posY, lifeTime, gender, -1, 0)
+            }
 
         }
 
@@ -36,57 +39,79 @@ class TimeLaps {
 
     }
 
-
-    /*
-    * This function will run repeatedly until population collapse
-    * 1. go throw oneGender matrix and check if any species is freeze for 10 lifespan steps then
-    *    create a new species and the gender of new species will be calculated with random number generator
-    *    if any species is freeze for 20 lifespan steps then unfreeze the species.
-    * 2. Remove species if their life span is 1000
-    * 2. Each species will be moved to one step in random direction and Compute the new positions of all the species.
-    * 3. Create a new space matrix and check if any zeroGender Species with lifetime between 200 and 600 are present in each location
-    *    and mark the locations to true
-    * 4. go throw all active oneGender species and check if any species position has true value in the space matrix
-    *    if yes freeze that species.
-    * */
     private fun snap() {
 
-        while (oneGender.size != 0 && zeroGender.size != 0) {
-            createNewSpecies()
+        while (maleMap.isNotEmpty() && femaleMap.isNotEmpty()) {
+
+            val mKeySet = maleMap.keys.toSet()
+            val fKeySet = femaleMap.keys.toSet()
+
+
+            //Create new species
+
+            var newSpeciesM = 0
+            var newSpeciesF = 0
+
+            fKeySet.forEach {
+
+                val sp = femaleMap[it]
+
+                if (sp != null) {
+                    if (sp.freezeTime != -1) {
+                        if (sp.lifeTime - sp.freezeTime == 10) {
+
+                            val gender = if (Random.nextInt(1, 101) <= maleSpeciesPerHundred) 0 else 1
+
+                            if (gender == 0) {
+                                newSpeciesM++
+                                maleMap[mCount] = Species(mCount++, sp.x, sp.y, 0, gender, -1, 0)
+                            } else {
+                                newSpeciesF++
+                                femaleMap[fCount] = Species(fCount++, sp.x, sp.y, 0, gender, -1, 0)
+                            }
+
+                        } else if (sp.lifeTime - sp.freezeTime == 20) {
+                            femaleMap[it]?.freezeTime = -1
+                        }
+                    }
+                }
+
+            }
+
+            mKeySet.forEach {
+                if (maleMap[it]!!.lifeTime - maleMap[it]!!.freezeTime == 20) maleMap[it]!!.freezeTime = -1
+            }
+
+
+            //Increase lifetime
+            for (i in mKeySet) {
+                maleMap[i]!!.lifeTime++
+            }
+
+            for (i in fKeySet) {
+                femaleMap[i]!!.lifeTime++
+            }
+
+
+            // Remove dead species
+            for (i in mKeySet) {
+                if (maleMap[i]!!.lifeTime >= maxLifeSpan || maleMap[i]!!.childCount == maxChildrenPerSpecies) maleMap.remove(
+                    i
+                )
+            }
+
+            for (i in fKeySet) {
+                if (femaleMap[i]!!.lifeTime >= maxLifeSpan || femaleMap[i]!!.childCount == maxChildrenPerSpecies) femaleMap.remove(
+                    i
+                )
+            }
+
+            //createNewSpecies()
             moveSpecies()
 
-            val zSize = zeroGender.size
+            populationLifeSpan++
 
-            zeroGender.removeAll{it.lifeTime >= 1000}
-
-            print(" z = "+(zSize - zeroGender.size)+" ")
-
-            oneGender.removeAll{it.lifeTime >= 1000}
-
-
-            val spaceMatrix = Array(SpaceX) { BooleanArray(SpaceX) };
-
-            zeroGender.forEach {
-                spaceMatrix[it.x][it.y] = it.lifeTime in 201..599
-            }
-
-            for (i in 0 until oneGender.size) {
-                if (oneGender[i].freezeTime == -1 && spaceMatrix[oneGender[i].x][oneGender[i].y]) {
-                    oneGender[i].freezeTime = oneGender[i].lifeTime
-                }
-            }
-
-            for (i in 0 until zeroGender.size) {
-                zeroGender[i].lifeTime++
-            }
-            for (i in 0 until oneGender.size) {
-                oneGender[i].lifeTime++
-            }
-
-            populationLifeSpan++;
-
-            println("at = "+populationLifeSpan+" -> zero = "+zeroGender.size +", one = "+oneGender.size)
-
+            println("at = " + populationLifeSpan + " -> female = " + femaleMap.keys.size + ", male = " + maleMap.keys.size + " M = " + " , = " + (maleMap.keys.size.toFloat() / femaleMap.keys.size.toFloat()))
 
         }
 
@@ -94,85 +119,104 @@ class TimeLaps {
 
     private fun moveSpecies() {
 
-        for (i in 0 until oneGender.size) {
+        maleMap.keys.forEach {
 
-            var isItGoodPosition = false;
+            val mSpecies = maleMap[it]
 
-            var x = oneGender[i].x
-            var y = oneGender[i].y
+            if (mSpecies!!.freezeTime == -1 && mSpecies!!.lifeTime >= preAdultAge) {
 
-            while (!isItGoodPosition) {
+                var closestFemaleSpeciesKey = Long.MAX_VALUE
+                var closestFemaleSpeciesDistance = Double.MAX_VALUE
 
-                val direction = Random.nextInt(0, 4)
+                femaleMap.keys.forEach { fit ->
 
-                if (direction == 0 && x - 1 >= 0) {
-                    x -= 1;
-                    isItGoodPosition = true
-                } else if (direction == 1 && x + 1 < SpaceX) {
-                    x += 1;
-                    isItGoodPosition = true
-                } else if (direction == 2 && y - 1 >= 0) {
-                    y -= 1;
-                    isItGoodPosition = true
-                } else if (direction == 3 && y + 1 < SpaceX) {
-                    y += 1;
-                    isItGoodPosition = true
+                    if (femaleMap[fit]!!.freezeTime == -1 && femaleMap[fit]!!.lifeTime >= preAdultAge && !femaleMap[fit]!!.isLocked) {
+
+                        val distance = sqrt(
+                            (femaleMap[fit]!!.x - mSpecies!!.x).toDouble().pow(2)
+                                    + (femaleMap[fit]!!.y - mSpecies!!.y).toDouble().pow(2)
+                        )
+
+                        if (distance <= closestFemaleSpeciesDistance) {
+                            closestFemaleSpeciesDistance = distance
+                            closestFemaleSpeciesKey = fit
+                        }
+
+                    }
+
+                }
+
+                if (closestFemaleSpeciesKey != Long.MAX_VALUE && Random.nextInt(0, 100) % 4 == 0) {
+
+                    maleMap[it]!!.freezeTime = maleMap[it]!!.lifeTime
+                    femaleMap[closestFemaleSpeciesKey]!!.freezeTime = femaleMap[closestFemaleSpeciesKey]!!.lifeTime
+
+                    maleMap[it]!!.x = femaleMap[closestFemaleSpeciesKey]!!.x
+                    maleMap[it]!!.y = femaleMap[closestFemaleSpeciesKey]!!.y
+
+                } else {
+
+                    when (Random.nextInt(0, 4)) {
+                        0 -> {
+                            maleMap[it]!!.x -= 1
+                        }
+
+                        1 -> {
+                            maleMap[it]!!.x += 1
+                        }
+
+                        2 -> {
+                            maleMap[it]!!.y -= 1
+                        }
+
+                        3 -> {
+                            maleMap[it]!!.y += 1
+                        }
+                    }
+
+                }
+
+                if (closestFemaleSpeciesKey != Long.MAX_VALUE) {
+                    femaleMap[closestFemaleSpeciesKey]!!.isLocked = true
+                }
+                maleMap[it]!!.isLocked = true
+
+            }
+
+
+            femaleMap.keys.forEach { it1 ->
+
+                femaleMap[it1]!!.isLocked = false
+
+                if (femaleMap[it1]!!.freezeTime == -1) {
+
+                    when (Random.nextInt(0, 4)) {
+                        0 -> {
+                            femaleMap[it1]!!.x -= 1
+                        }
+
+                        1 -> {
+                            femaleMap[it1]!!.x += 1
+                        }
+
+                        2 -> {
+                            femaleMap[it1]!!.y -= 1
+                        }
+
+                        3 -> {
+                            femaleMap[it1]!!.y += 1
+                        }
+                    }
                 }
 
             }
-            oneGender[i].x = x
-            oneGender[i].y = y
-        }
 
-        for (i in 0 until zeroGender.size) {
-
-            var isItGoodPosition = false;
-
-            var x = zeroGender[i].x
-            var y = zeroGender[i].y
-
-            while (!isItGoodPosition) {
-
-                val direction = Random.nextInt(0, 4)
-
-                if (direction == 0 && x - 1 >= 0) {
-                    x -= 1;
-                    isItGoodPosition = true
-                } else if (direction == 1 && x + 1 < SpaceX) {
-                    x += 1;
-                    isItGoodPosition = true
-                } else if (direction == 2 && y - 1 >= 0) {
-                    y -= 1;
-                    isItGoodPosition = true
-                } else if (direction == 3 && y + 1 < SpaceX) {
-                    y += 1;
-                    isItGoodPosition = true
-                }
-
+            maleMap.keys.forEach { it1 ->
+                maleMap[it1]!!.isLocked = false
             }
 
-            zeroGender[i].x = x
-            zeroGender[i].y = y
-
-
         }
 
-
-    }
-
-    private fun createNewSpecies() {
-
-        for (i in 0 until oneGender.size) {
-            if (oneGender[i].freezeTime != -1) {
-                if (oneGender[i].lifeTime - oneGender[i].freezeTime == 10) {
-                    val gender = if (Random.nextInt(1, 101) <= zeroGenderSpeciesPerHundred) 1 else 0
-                    val species = Species(oneGender[i].x, oneGender[i].y, 0, gender, -1)
-                    if (gender == 1) oneGender.add(species) else zeroGender.add(species)
-                } else if (oneGender[i].lifeTime - oneGender[i].freezeTime == 20) {
-                    oneGender[i].freezeTime = -1
-                }
-            }
-        }
 
     }
 
