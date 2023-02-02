@@ -12,5 +12,7 @@ data class Species(
     var gender: Int,        // Gender, 0 Represents male and 1 Represents female
     var freezeTime: Int,    // -1 represents species is not freeze, a species will freeze in reproduction process.
     var childCount: Int,    // Number of children, Max 4
-    var isLocked: Boolean = false   //
+    var isInLove: Boolean = false,   //
+    val isItSpecial: Boolean = false,
+    var canHaveSpecialChild: Boolean = false
 )

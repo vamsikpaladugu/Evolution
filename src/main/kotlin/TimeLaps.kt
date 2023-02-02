@@ -12,6 +12,8 @@ class TimeLaps {
     private var fCount = 0L
     private var mCount = 0L
 
+    private var spCount = 1;
+
 
     /*
     * create 200 species with Random positions, gender and lifespan
@@ -30,7 +32,7 @@ class TimeLaps {
             if (gender == 0) {
                 maleMap[mCount] = Species(mCount++, posX, posY, lifeTime, gender, -1, 0)
             } else {
-                femaleMap[fCount] = Species(fCount++, posX, posY, lifeTime, gender, -1, 0)
+                femaleMap[fCount] = Species(fCount++, posX, posY, lifeTime, gender, -1, 0, isItSpecial = mCount==2L)
             }
 
         }
@@ -48,10 +50,6 @@ class TimeLaps {
 
 
             //Create new species
-
-            var newSpeciesM = 0
-            var newSpeciesF = 0
-
             fKeySet.forEach {
 
                 val sp = femaleMap[it]
@@ -63,15 +61,17 @@ class TimeLaps {
                             val gender = if (Random.nextInt(1, 101) <= maleSpeciesPerHundred) 0 else 1
 
                             if (gender == 0) {
-                                newSpeciesM++
-                                maleMap[mCount] = Species(mCount++, sp.x, sp.y, 0, gender, -1, 0)
+                                maleMap[mCount] = Species(mCount++, sp.x, sp.y, 0, gender, -1, 0, isItSpecial = sp.canHaveSpecialChild)
                             } else {
-                                newSpeciesF++
-                                femaleMap[fCount] = Species(fCount++, sp.x, sp.y, 0, gender, -1, 0)
+                                femaleMap[fCount] = Species(fCount++, sp.x, sp.y, 0, gender, -1, 0, isItSpecial = sp.canHaveSpecialChild)
                             }
+
+                            if (sp.canHaveSpecialChild) spCount++
 
                         } else if (sp.lifeTime - sp.freezeTime == 20) {
                             femaleMap[it]?.freezeTime = -1
+                            femaleMap[it]?.canHaveSpecialChild = false
+
                         }
                     }
                 }
@@ -94,13 +94,13 @@ class TimeLaps {
 
 
             // Remove dead species
-            for (i in mKeySet) {
+            mKeySet.forEach { i ->
                 if (maleMap[i]!!.lifeTime >= maxLifeSpan || maleMap[i]!!.childCount == maxChildrenPerSpecies) maleMap.remove(
                     i
                 )
             }
 
-            for (i in fKeySet) {
+            fKeySet.forEach { i ->
                 if (femaleMap[i]!!.lifeTime >= maxLifeSpan || femaleMap[i]!!.childCount == maxChildrenPerSpecies) femaleMap.remove(
                     i
                 )
@@ -111,7 +111,8 @@ class TimeLaps {
 
             populationLifeSpan++
 
-            println("at = " + populationLifeSpan + " -> female = " + femaleMap.keys.size + ", male = " + maleMap.keys.size + " M = " + " , = " + (maleMap.keys.size.toFloat() / femaleMap.keys.size.toFloat()))
+            //println("at = " + populationLifeSpan + " -> female = " + femaleMap.keys.size + ", male = " + maleMap.keys.size + " M = " + " , = " + (maleMap.keys.size.toFloat() / femaleMap.keys.size.toFloat()))
+            println("{\"x\":$populationLifeSpan,\"y\":${(femaleMap.keys.size + maleMap.keys.size - spCount)},\"z\":$spCount},")
 
         }
 
@@ -130,7 +131,7 @@ class TimeLaps {
 
                 femaleMap.keys.forEach { fit ->
 
-                    if (femaleMap[fit]!!.freezeTime == -1 && femaleMap[fit]!!.lifeTime >= preAdultAge && !femaleMap[fit]!!.isLocked) {
+                    if (femaleMap[fit]!!.freezeTime == -1 && femaleMap[fit]!!.lifeTime >= preAdultAge && !femaleMap[fit]!!.isInLove) {
 
                         val distance = sqrt(
                             (femaleMap[fit]!!.x - mSpecies!!.x).toDouble().pow(2)
@@ -146,10 +147,17 @@ class TimeLaps {
 
                 }
 
-                if (closestFemaleSpeciesKey != Long.MAX_VALUE && Random.nextInt(0, 100) % 4 == 0) {
+                if (closestFemaleSpeciesKey != Long.MAX_VALUE && (
+                            Random.nextInt(0, 100) % 4 == 0 ||
+                                    femaleMap[closestFemaleSpeciesKey]!!.isItSpecial ||
+                                    maleMap[it]!!.isItSpecial
+                            )
+                ) {
 
                     maleMap[it]!!.freezeTime = maleMap[it]!!.lifeTime
                     femaleMap[closestFemaleSpeciesKey]!!.freezeTime = femaleMap[closestFemaleSpeciesKey]!!.lifeTime
+                    femaleMap[closestFemaleSpeciesKey]!!.canHaveSpecialChild =
+                        femaleMap[closestFemaleSpeciesKey]!!.isItSpecial || maleMap[it]!!.isItSpecial
 
                     maleMap[it]!!.x = femaleMap[closestFemaleSpeciesKey]!!.x
                     maleMap[it]!!.y = femaleMap[closestFemaleSpeciesKey]!!.y
@@ -177,16 +185,16 @@ class TimeLaps {
                 }
 
                 if (closestFemaleSpeciesKey != Long.MAX_VALUE) {
-                    femaleMap[closestFemaleSpeciesKey]!!.isLocked = true
+                    femaleMap[closestFemaleSpeciesKey]!!.isInLove = true
                 }
-                maleMap[it]!!.isLocked = true
+                maleMap[it]!!.isInLove = true
 
             }
 
 
             femaleMap.keys.forEach { it1 ->
 
-                femaleMap[it1]!!.isLocked = false
+                femaleMap[it1]!!.isInLove = false
 
                 if (femaleMap[it1]!!.freezeTime == -1) {
 
@@ -212,7 +220,7 @@ class TimeLaps {
             }
 
             maleMap.keys.forEach { it1 ->
-                maleMap[it1]!!.isLocked = false
+                maleMap[it1]!!.isInLove = false
             }
 
         }
